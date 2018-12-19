@@ -6,6 +6,7 @@ use think\Controller;
 
 class Index extends Controller
 {
+
     //各种类型响应消息的模板
     private $tpl = array(
         'text' => ' <xml>
@@ -55,8 +56,9 @@ class Index extends Controller
                     <ThumbMediaId><![CDATA[%s]]></ThumbMediaId>
                     </Music>
                     </xml>'
-);    
+);   
 
+    //接入微信服务器的入口
     public function index()
     {
         //$this->traceHttp();
@@ -107,12 +109,7 @@ class Index extends Controller
         else
         {
             exit;    
-        }
-        
-        
-        
-
-        
+        }    
 
     }
 
@@ -286,6 +283,69 @@ class Index extends Controller
         } 
         exit;
     }
+
+    //封装的https接口请求方法_request
+    private function _request($curl, $https=true,$method='get',$data=null)
+    {
+        $ch = curl_init(); //初始化
+        curl_setopt($ch,CURLOPT_URL,"$curl"); //设置访问的URL
+        curl_setopt($ch,CURLOPT_HEADER,FALSE); //设置不需要头信息
+        curl_setopt($ch,CURLOPT_RETURNTRANSFER,true); //只获取页面内容,但不输出
+        curl_setopt($ch,CURLOPT_SAFE_UPLOAD,false); //解决php5.6版本以上不支持微信接口curl '@文件路径' 的问题
+
+        //https处理
+        if($https)
+        {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); //不做服务器认证
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); //不做客户端认证        
+        }
+
+        if($method == 'post')
+        {
+            curl_setopt($ch, CURLOPT_POST, true); //设置请求是POST方式
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data); //设置POST请求的数据
+        }
+
+        $str = curl_exec($ch); //执行访问,返回结果
+        curl_close($ch); //关闭curl,释放资源   
+        
+        return $str;
+    }
+
+    //微信公众号网页授权 基础授权 只能拿到网页授权的access_token和openid
+    //先引导微信公众号用户(必须关注了这个公众号的用户)到这个页面方法getBaseInfo()中,利用微信客户端扫二维码的功能
+    //把进入到getBaseInfo()这个方法的url制作成二维码,让微信用户扫这个二维码
+    //就引导微信公众号用户进入到这个页面方法getBaseInfo()中了
+    //接着用header方法往获取code的微信服务器接口跳转
+    //跳转后会携带返回的code重定向到我们定义的$redirect_uri参数对应的getUserOpenId(方法中)
+    public function getBaseInfo()
+    {
+        //1. 获取到code
+        $appid = "wx36fa59f034d2994a";
+        $redirect_uri = urlencode('http://www.ecook.top/mp/Index/getUserOpenId');
+        $url = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=".$appid."&redirect_uri=".$redirect_uri."&response_type=code&scope=snsapi_base&state=STATE#wechat_redirect";
+        header('location:'.$url);
+
+    }
+
+    public function getUserOpenId()
+    {
+        //2.获取到网页授权的access_token和openid
+        //把携带code的自动重定向进入到这个getUserOpenId()方法中的code获得
+        //并向获取网页授权的access_token和openid的微信服务器接口发起请求
+        $appid = "wx36fa59f034d2994a";
+        $appsecret = "f94522623e5196f606016cf2281d4c67";
+        $code = $_GET['code'];
+        $url = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=".$appid."&secret=".$appsecret."&code=".$code."&grant_type=authorization_code";
+
+        //3.拉取用户的opendid
+        $res = $this->_request($url);
+        var_dump($res);    
+        //$openid = $res['openid'];
+        
+    }
+
+
 
 
 }
