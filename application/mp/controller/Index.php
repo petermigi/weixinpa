@@ -312,7 +312,7 @@ class Index extends Controller
         return $str;
     }
 
-    //微信公众号网页授权 基础授权 只能拿到网页授权的access_token和openid
+    //微信公众号网页授权 基础授权scope权限域为snsapi_base 只能拿到网页授权的access_token和openid
     //先引导微信公众号用户(必须关注了这个公众号的用户)到这个页面方法getBaseInfo()中,利用微信客户端扫二维码的功能
     //把进入到getBaseInfo()这个方法的url制作成二维码,让微信用户扫这个二维码
     //就引导微信公众号用户进入到这个页面方法getBaseInfo()中了
@@ -345,7 +345,53 @@ class Index extends Controller
         
     }
 
+     //微信公众号网页授权 高级授权scope权限域为snsapi_userinfo 只能拿到网页授权的access_token和openid
+    //原理与基础授权相同
+    //只不过要修改scope权限域为snsapi_userinfo
+    //拿到通过code拿到access_token和openid后
+    //去请求获取微信公众号用户详细信息的微信服务器接口
+    //来获得微信用户的详细信息
+    public function getUserDetail()
+    {
+        //1. 获取到code
+        $appid = "wx36fa59f034d2994a";
+        $redirect_uri = urlencode('http://www.ecook.top/mp/Index/getUserInfo');
+        $url = "https://open.weixin.qq.com/connect/oauth2/authorize?appid=".$appid."&redirect_uri=".$redirect_uri."&response_type=code&scope=snsapi_userinfo&state=STATE#wechat_redirect";
+        header('location:'.$url);
+    }
+
+    public function getUserInfo()
+    {
+        //2.获取到网页授权的access_token和openid
+        //把携带code的自动重定向进入到这个getUserOpenId()方法中的code获得
+        //并向获取网页授权的access_token和openid的微信服务器接口发起请求
+        $appid = "wx36fa59f034d2994a";
+        $appsecret = "f94522623e5196f606016cf2281d4c67";
+        $code = $_GET['code'];
+        $url = "https://api.weixin.qq.com/sns/oauth2/access_token?appid=".$appid."&secret=".$appsecret."&code=".$code."&grant_type=authorization_code";
+        
+        //发起请求获取用户的access_token和openid
+        $res = $this->_request($url);
+        //var_dump($res);    
+        //$access_token = $res['access_token'];
+        //$openid = $res['openid'];
+        
+        //注意微信服务器接口返回的是json格式的字符串
+        //要在php语言中使用,必须用json_decode()函数转化为php对象或数组
+        $res = json_decode($res,true);
+        $access_token = $res['access_token'];
+        $openid = $res['openid'];
+        
+        //echo $openid;die();
+
+        //3.拉取用户的详细信息
+        $url = "https://api.weixin.qq.com/sns/userinfo?access_token=".$access_token."&openid=".$openid."&lang=zh_CN";
+        $res = $this->_request($url);
+        var_dump($res);
+
+    }
 
 
 
-}
+
+}//class end
